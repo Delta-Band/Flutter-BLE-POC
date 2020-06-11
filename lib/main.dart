@@ -41,6 +41,23 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  _connectToDevice(BluetoothDevice device) async {
+    try {
+      await device.connect();
+    } catch (e) {
+      if (e.code != 'already_connected') {
+        print('device already connected!');
+        throw e;
+      }
+    } finally {
+      print('device connection established!');
+      _services = await device.discoverServices();
+    }
+    setState(() {
+      _connectedDevice = device;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -61,69 +78,70 @@ class _MyHomePageState extends State<MyHomePage> {
         _addDeviceTolist(device);
       }
     });
-    widget.flutterBlue.scanResults.listen((List<ScanResult> results) {
+    widget.flutterBlue.scanResults.listen((List<ScanResult> results) async {
       for (ScanResult result in results) {
         if (result.device.name == 'JBL Flip 4') {
-          _addDeviceTolist(result.device);
+          // _addDeviceTolist(result.device);
           widget.flutterBlue.stopScan();
+          _connectToDevice(result.device);
         }
       }
     });
   }
 
-  ListView _buildListViewOfDevices() {
-    List<Container> containers = new List<Container>();
-    for (BluetoothDevice device in widget.devicesList) {
-      containers.add(
-        Container(
-          height: 50,
-          child: Row(
-            children: <Widget>[
-              Expanded(
-                child: Column(
-                  children: <Widget>[
-                    Text(device.name == '' ? '(unknown device)' : device.name),
-                    Text(device.id.toString()),
-                  ],
-                ),
-              ),
-              FlatButton(
-                color: Colors.blue,
-                child: Text(
-                  'Connect',
-                  style: TextStyle(color: Colors.white),
-                ),
-                onPressed: () async {
-                  try {
-                    await device.connect();
-                  } catch (e) {
-                    if (e.code != 'already_connected') {
-                      print('device already connected!');
-                      throw e;
-                    }
-                  } finally {
-                    print('device connection established!');
-                    _services = await device.discoverServices();
-                  }
-                  setState(() {
-                    _connectedDevice = device;
-                  });
-                },
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+  // ListView _buildListViewOfDevices() {
+  //   List<Container> containers = new List<Container>();
+  //   for (BluetoothDevice device in widget.devicesList) {
+  //     containers.add(
+  //       Container(
+  //         height: 50,
+  //         child: Row(
+  //           children: <Widget>[
+  //             Expanded(
+  //               child: Column(
+  //                 children: <Widget>[
+  //                   Text(device.name == '' ? '(unknown device)' : device.name),
+  //                   Text(device.id.toString()),
+  //                 ],
+  //               ),
+  //             ),
+  //             FlatButton(
+  //               color: Colors.blue,
+  //               child: Text(
+  //                 'Connect',
+  //                 style: TextStyle(color: Colors.white),
+  //               ),
+  //               onPressed: () async {
+  //                 try {
+  //                   await device.connect();
+  //                 } catch (e) {
+  //                   if (e.code != 'already_connected') {
+  //                     print('device already connected!');
+  //                     throw e;
+  //                   }
+  //                 } finally {
+  //                   print('device connection established!');
+  //                   _services = await device.discoverServices();
+  //                 }
+  //                 setState(() {
+  //                   _connectedDevice = device;
+  //                 });
+  //               },
+  //             ),
+  //           ],
+  //         ),
+  //       ),
+  //     );
+  //   }
 
-    return ListView(
-      padding: const EdgeInsets.all(8),
-      children: <Widget>[
-        ...containers,
-        // _buildScanBtn(),
-      ],
-    );
-  }
+  //   return ListView(
+  //     padding: const EdgeInsets.all(8),
+  //     children: <Widget>[
+  //       ...containers,
+  //       // _buildScanBtn(),
+  //     ],
+  //   );
+  // }
 
   List<ButtonTheme> _buildReadWriteNotifyButton(
       BluetoothCharacteristic characteristic) {
@@ -302,9 +320,10 @@ class _MyHomePageState extends State<MyHomePage> {
   _buildView() {
     if (_connectedDevice != null) {
       return _buildConnectDeviceView();
-    } else if (widget.devicesList.length > 0) {
-      return _buildListViewOfDevices();
     }
+    // else if (widget.devicesList.length > 0) {
+    //   return _buildListViewOfDevices();
+    // }
     return _buildScanBtn();
   }
 
