@@ -44,6 +44,16 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
+    widget.flutterBlue.state.listen((state) {
+      if (state == BluetoothState.off) {
+        print('bluetooth is disabled');
+        //Alert user to turn on bluetooth.
+      } else if (state == BluetoothState.on) {
+        //if bluetooth is enabled then go ahead.
+        //Make sure user's device gps is on.
+        print('bluetooth is enabled');
+      }
+    });
     widget.flutterBlue.connectedDevices
         .asStream()
         .listen((List<BluetoothDevice> devices) {
@@ -53,10 +63,12 @@ class _MyHomePageState extends State<MyHomePage> {
     });
     widget.flutterBlue.scanResults.listen((List<ScanResult> results) {
       for (ScanResult result in results) {
-        _addDeviceTolist(result.device);
+        if (result.device.name == 'JBL Flip 4') {
+          _addDeviceTolist(result.device);
+          widget.flutterBlue.stopScan();
+        }
       }
     });
-    widget.flutterBlue.startScan();
   }
 
   ListView _buildListViewOfDevices() {
@@ -82,14 +94,15 @@ class _MyHomePageState extends State<MyHomePage> {
                   style: TextStyle(color: Colors.white),
                 ),
                 onPressed: () async {
-                  widget.flutterBlue.stopScan();
                   try {
                     await device.connect();
                   } catch (e) {
                     if (e.code != 'already_connected') {
+                      print('device already connected!');
                       throw e;
                     }
                   } finally {
+                    print('device connection established!');
                     _services = await device.discoverServices();
                   }
                   setState(() {
@@ -107,6 +120,7 @@ class _MyHomePageState extends State<MyHomePage> {
       padding: const EdgeInsets.all(8),
       children: <Widget>[
         ...containers,
+        // _buildScanBtn(),
       ],
     );
   }
@@ -127,6 +141,7 @@ class _MyHomePageState extends State<MyHomePage> {
               child: Text('READ', style: TextStyle(color: Colors.white)),
               onPressed: () async {
                 var sub = characteristic.value.listen((value) {
+                  print(characteristic);
                   setState(() {
                     widget.readValues[characteristic.uuid] = value;
                   });
@@ -259,15 +274,38 @@ class _MyHomePageState extends State<MyHomePage> {
       padding: const EdgeInsets.all(8),
       children: <Widget>[
         ...containers,
+        SizedBox(
+          height: 30.0,
+        ),
+        RaisedButton(
+          onPressed: () {
+            _connectedDevice.disconnect();
+            setState(() {
+              _connectedDevice = null;
+            });
+          },
+          child: Text('Disconnect Device'),
+        ),
       ],
     );
   }
 
-  ListView _buildView() {
+  Widget _buildScanBtn() {
+    return Center(
+      child: RaisedButton(
+        onPressed: widget.flutterBlue.startScan,
+        child: Text('Scan for Device'),
+      ),
+    );
+  }
+
+  _buildView() {
     if (_connectedDevice != null) {
       return _buildConnectDeviceView();
+    } else if (widget.devicesList.length > 0) {
+      return _buildListViewOfDevices();
     }
-    return _buildListViewOfDevices();
+    return _buildScanBtn();
   }
 
   @override
