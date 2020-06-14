@@ -6,14 +6,12 @@ import './home.dart';
 void main() => runApp(MyApp());
 
 class MyApp extends StatefulWidget {
-  
-  final FlutterBlue flutterBlue = FlutterBlue.instance;
-
   @override
   _MyAppState createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> {
+  final FlutterBlue flutterBlue = FlutterBlue.instance;
   BluetoothDevice _connectedDevice;
   List<BluetoothService> _services;
   bool _searchingForDevice;
@@ -21,12 +19,11 @@ class _MyAppState extends State<MyApp> {
   bool _blueToothIsDisabled;
   int _timeToConnect;
 
-
   _connectToDevice(BluetoothDevice device) async {
-    final DateTime startTime = DateTime.now();
+    DateTime startTime = DateTime.now();
     StreamSubscription<BluetoothDeviceState> _listener;
 
-    widget.flutterBlue.stopScan();
+    flutterBlue.stopScan();
 
     try {
       await device.connect();
@@ -53,7 +50,7 @@ class _MyAppState extends State<MyApp> {
     _listener = _connectedDevice.state.listen((state) {
       if (state == BluetoothDeviceState.disconnected) {
         print('Device Disconnected!');
-        widget.flutterBlue.startScan();
+        flutterBlue.startScan();
         setState(() {
           _connectingToDevice = false;
           _connectedDevice = null;
@@ -68,7 +65,7 @@ class _MyAppState extends State<MyApp> {
     _searchingForDevice = true;
     _connectingToDevice = true;
     _blueToothIsDisabled = true;
-    widget.flutterBlue.state.listen((state) {
+    flutterBlue.state.listen((state) {
       if (state == BluetoothState.off) {
         if (!_blueToothIsDisabled) {
           setState(() {
@@ -81,10 +78,10 @@ class _MyAppState extends State<MyApp> {
             _blueToothIsDisabled = false;
           });
         }
-        widget.flutterBlue.startScan();
+        flutterBlue.startScan();
       }
     });
-    widget.flutterBlue.connectedDevices
+    flutterBlue.connectedDevices
         .asStream()
         .listen((List<BluetoothDevice> devices) {
       for (BluetoothDevice device in devices) {
@@ -93,14 +90,14 @@ class _MyAppState extends State<MyApp> {
         }
       }
     });
-    widget.flutterBlue.scanResults.listen((List<ScanResult> results) async {
+    flutterBlue.scanResults.listen((List<ScanResult> results) async {
       for (ScanResult result in results) {
         if (result.device.name == 'JBL Flip 4') {
           _connectToDevice(result.device);
         }
       }
     });
-    widget.flutterBlue.isScanning.listen((isScanning) {
+    flutterBlue.isScanning.listen((isScanning) {
       setState(() {
         _searchingForDevice = isScanning;
       });
@@ -174,16 +171,28 @@ class _MyAppState extends State<MyApp> {
         theme: ThemeData(
             primarySwatch: Colors.grey,
             textTheme: TextTheme(
+              bodyText1: TextStyle(
+                height: 2,
+                color: Colors.white,
+              ),
               bodyText2: TextStyle(
                 height: 2,
+                color: Colors.white,
               ),
             )),
         home: Scaffold(
           appBar: AppBar(
             backgroundColor: Colors.grey.shade900,
-            title: Text('Flutter BLE Demo', style: TextStyle(color: Color(0xffFF0048)),),
+            title: Text(
+              'Flutter BLE Demo',
+              style: TextStyle(color: Color(0xffFF0048)),
+            ),
+            brightness: Brightness.dark,
           ),
-          body: _buildView(),
+          body: Container(
+            color: Colors.grey.shade800,
+            child: _buildView(),
+          ),
         ),
       );
 }

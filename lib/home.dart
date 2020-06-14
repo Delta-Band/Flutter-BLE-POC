@@ -29,7 +29,7 @@ class _MyHomePageState extends State<MyHomePage> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: RaisedButton(
-              color: Colors.blue,
+              color: Colors.cyan,
               child: Text('READ', style: TextStyle(color: Colors.white)),
               onPressed: () async {
                 var sub = characteristic.value.listen((value) {
@@ -156,7 +156,7 @@ class _MyHomePageState extends State<MyHomePage> {
       containers.add(
         Container(
           child: ExpansionTile(
-              title: Text(service.uuid.toString()),
+              title: Text(service.uuid.toString(), style: TextStyle(color: Colors.white),),
               children: characteristicsWidget),
         ),
       );
@@ -170,6 +170,7 @@ class _MyHomePageState extends State<MyHomePage> {
           height: 30.0,
         ),
         Card(
+          color: Colors.grey.shade900,
           child: Padding(
             padding: const EdgeInsets.all(8.0),
             child: Text(
