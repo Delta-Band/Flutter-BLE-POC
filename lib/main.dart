@@ -12,64 +12,123 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final FlutterBlue flutterBlue = FlutterBlue.instance;
-  BluetoothDevice _connectedDevice;
+  BluetoothDevice _device;
   List<BluetoothService> _services;
-  bool _searchingForDevice;
+  bool _isScanning;
   bool _connectingToDevice;
   bool _blueToothIsDisabled;
   int _timeToConnect;
+  StreamSubscription<BluetoothDeviceState> _deviceListener;
 
-  _connectToDevice(BluetoothDevice device) async {
-    DateTime startTime = DateTime.now();
-    StreamSubscription<BluetoothDeviceState> _listener;
-
-    flutterBlue.stopScan();
-
+  _connectToDevice() async {
     try {
-      await device.connect();
-    } catch (e) {
-      if (e.code != 'already_connected') {
-        print('device already connected!');
-        throw e;
-      }
-    } finally {
-      print('device connection established!');
-      _services = await device.discoverServices();
       setState(() {
-        DateTime now = DateTime.now();
-        Duration differance = startTime.difference(now);
-        _timeToConnect = 0 - differance.inSeconds;
-        _connectedDevice = device;
-        _connectingToDevice = false;
+        _connectingToDevice = true;
+        _services = null;
       });
+      DateTime startTime = DateTime.now();
+      print('*** Attepting connection...');
+      await _device.disconnect();
+      await _device.connect(timeout: Duration(seconds: 10), autoConnect: false);
+      // await _device.connect();
+      print('*** device connection established!');
+      DateTime now = DateTime.now();
+      Duration differance = startTime.difference(now);
+      setState(() {
+        _timeToConnect = 0 - differance.inSeconds;
+      });
+    } catch (e) {
+      if (e.message == 'Future not completed') {
+        print(
+            '*** Connection taking more than 19 seconds - attrepting reconnect');
+        _connectToDevice();
+      } else if (e.code != 'already_connected') {
+        print('*** device already connected!');
+        // throw e;
+      }
     }
+  }
 
-    if (_listener != null) {
-      _listener.cancel();
-    }
-    _listener = _connectedDevice.state.listen((state) {
+  void _listenToDeviceState(device) {
+    _deviceListener = device.state.listen((state) async {
       if (state == BluetoothDeviceState.disconnected) {
-        print('Device Disconnected!');
-        flutterBlue.startScan();
+        print('*** Device Disconnected!');
+        setState(() {
+          _services = null;
+          _timeToConnect = null;
+        });
+        // await flutterBlue.stopScan();
+        // flutterBlue.startScan();
+        // _scanner();
+        if (!_isScanning) {
+          flutterBlue.startScan();
+        }
+      } else if (state == BluetoothDeviceState.connected) {
+        // flutterBlue.stopScan();
+        print('*** Requesting service from device...');
+        _services = await device.discoverServices();
         setState(() {
           _connectingToDevice = false;
-          _connectedDevice = null;
         });
+        flutterBlue.stopScan();
       }
+    });
+    setState(() {});
+  }
+
+  void _scanner() {
+    flutterBlue.connectedDevices
+        .asStream()
+        .listen((List<BluetoothDevice> devices) {
+      for (BluetoothDevice device in devices) {
+        print('*** Device is already connected so pair with app');
+        if (device.name == 'JBL Flip 4') {
+          setState(() {
+            _device = device;
+          });
+          _listenToDeviceState(device);
+          if (!_connectingToDevice) {
+            _connectToDevice();
+          }
+        }
+      }
+    });
+    flutterBlue.scanResults.listen((List<ScanResult> results) async {
+      for (ScanResult result in results) {
+        if (result.device.name == 'JBL Flip 4') {
+          print('*** Found the device');
+          setState(() {
+            _device = result.device;
+          });
+          _listenToDeviceState(result.device);
+          if (!_connectingToDevice) {
+            _connectToDevice();
+          }
+        }
+      }
+    });
+    flutterBlue.isScanning.listen((isScanning) {
+      setState(() {
+        _isScanning = isScanning;
+      });
     });
   }
 
   @override
   void initState() {
     super.initState();
-    _searchingForDevice = true;
-    _connectingToDevice = true;
+    _isScanning = false;
+    _connectingToDevice = false;
     _blueToothIsDisabled = true;
     flutterBlue.state.listen((state) {
       if (state == BluetoothState.off) {
         if (!_blueToothIsDisabled) {
           setState(() {
             _blueToothIsDisabled = true;
+            _device = null;
+            _services = null;
+            _timeToConnect = null;
+            _connectingToDevice = false;
           });
         }
       } else if (state == BluetoothState.on) {
@@ -77,30 +136,13 @@ class _MyAppState extends State<MyApp> {
           setState(() {
             _blueToothIsDisabled = false;
           });
+          _scanner();
+          flutterBlue.startScan();
         }
-        flutterBlue.startScan();
+        // if (!_isScanning) {
+        //   flutterBlue.startScan();
+        // }
       }
-    });
-    flutterBlue.connectedDevices
-        .asStream()
-        .listen((List<BluetoothDevice> devices) {
-      for (BluetoothDevice device in devices) {
-        if (device.name == 'JBL Flip 4') {
-          _connectToDevice(device);
-        }
-      }
-    });
-    flutterBlue.scanResults.listen((List<ScanResult> results) async {
-      for (ScanResult result in results) {
-        if (result.device.name == 'JBL Flip 4') {
-          _connectToDevice(result.device);
-        }
-      }
-    });
-    flutterBlue.isScanning.listen((isScanning) {
-      setState(() {
-        _searchingForDevice = isScanning;
-      });
     });
   }
 
@@ -153,14 +195,21 @@ class _MyAppState extends State<MyApp> {
   Widget _buildView() {
     if (_blueToothIsDisabled) {
       return _buildTurnOnBluetooth();
-    } else if (_searchingForDevice) {
-      return _buildSearchingState();
     } else if (_connectingToDevice) {
       return _buildConnectingState();
+    } else if (_services != null && _timeToConnect != null) {
+      return MyHomePage(
+        services: _services,
+        timeToConnect: _timeToConnect,
+      );
+      // return Center(
+      //   child: Text('Connected to JBK Flip 4!'),
+      // );
+    } else if (_isScanning) {
+      return _buildSearchingState();
     }
-    return MyHomePage(
-      services: _services,
-      timeToConnect: _timeToConnect,
+    return SizedBox(
+      height: 30.0,
     );
   }
 
